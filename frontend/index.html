@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Analyzer — Communication Systems</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg:        #060a10;
+    --panel:     #0b1120;
+    --border:    #1a2740;
+    --accent:    #00d4ff;
+    --accent2:   #00ff9d;
+    --warn:      #ff6b35;
+    --danger:    #ff2d55;
+    --text:      #c8ddf0;
+    --muted:     #4a6080;
+    --card:      #0d1828;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Rajdhani', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .sidebar-header {
+    padding: 18px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #0d1828 0%, #060a10 100%);
+  }
+
+  .sidebar-header h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .sidebar-header p {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-top: 3px;
+    font-family: var(--mono);
+  }
+
+  .sidebar-section {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-section h3 {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 10px;
+  }
+
+  .signal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .sig-btn {
+    background: #0d1828;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 8px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.18s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sig-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.18s;
+  }
+
+  .sig-btn span { position: relative; z-index: 1; }
+
+  .sig-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sig-btn.active {
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .sig-btn.active::before { opacity: 1; }
+
+  .param-row { margin-bottom: 13px; }
+
+  .param-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .param-label span:first-child {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    font-family: var(--mono);
+  }
+
+  .param-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    background: #060a10;
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    min-width: 52px;
+    text-align: center;
+  }
+
+  /* NEW: FM badge shown next to label when FM is active */
+  .fm-badge {
+    display: none;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    margin-left: 5px;
+  }
+
+  .fm-badge.visible { display: inline-block; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* NEW: FM mode slider thumb glows green */
+  input[type=range].fm-mode::-webkit-slider-thumb {
+    background: var(--accent2);
+    box-shadow: 0 0 8px var(--accent2);
+  }
+
+  input[type=range].fm-mode {
+    background: linear-gradient(90deg, var(--border), var(--accent2));
+  }
+
+  .block-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+
+  .block-toggle input[type=checkbox] { display: none; }
+
+  .toggle-pill {
+    width: 34px;
+    height: 18px;
+    border-radius: 9px;
+    background: var(--border);
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle-pill::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--muted);
+    top: 3px;
+    left: 3px;
+    transition: all 0.2s;
+  }
+
+  .block-toggle input:checked + .toggle-pill { background: var(--accent2); }
+
+  .block-toggle input:checked + .toggle-pill::after {
+    left: 19px;
+    background: #fff;
+    box-shadow: 0 0 6px var(--accent2);
+  }
+
+  .toggle-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+
+  .ctrl-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .ctrl-btn {
+    padding: 9px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #0d1828;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+
+  .ctrl-btn:hover           { border-color: var(--accent2); color: var(--accent2); }
+  .ctrl-btn.stop:hover      { border-color: var(--danger);  color: var(--danger); }
+
+  .live-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent2);
+    margin-right: 5px;
+    animation: pulse 1.2s infinite;
+  }
+
+  .live-dot.dead { background: var(--danger); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--accent2); }
+    50%       { opacity: 0.4; box-shadow: none; }
+  }
+
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 18px 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .status-title {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #060a10;
+  }
+
+  .status-badge.ok   { color: var(--accent2); border-color: var(--accent2); }
+  .status-badge.warn { color: var(--warn);    border-color: var(--warn); }
+  .status-badge.err  { color: var(--danger);  border-color: var(--danger); }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .metric-card.vpp::before  { background: var(--accent2); }
+  .metric-card.fom::before  { background: #a855f7; }
+  .metric-card.nmse::before { background: var(--warn); }
+
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .metric-card.vpp  .metric-value { color: var(--accent2); }
+  .metric-card.fom  .metric-value { color: #a855f7; }
+  .metric-card.nmse .metric-value { color: var(--warn); }
+
+  .metric-unit {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .diag-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .diag-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+
+  .diag-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  #diagnosis {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .block-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    white-space: nowrap;
+  }
+
+  .block-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .block-box {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #060a10;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    transition: all 0.2s;
+    min-width: 64px;
+    text-align: center;
+  }
+
+  .block-box.on  { border-color: var(--accent2); color: var(--accent2); box-shadow: 0 0 8px rgba(0,255,157,0.15); }
+  .block-box.off { border-color: var(--danger);  color: var(--danger);  box-shadow: 0 0 8px rgba(255,45,85,0.15); }
+
+  .block-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .block-dot.on  { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .block-dot.off { background: var(--danger);  box-shadow: 0 0 6px var(--danger); }
+
+  .block-arrow {
+    width: 24px; height: 2px;
+    background: var(--border);
+    position: relative;
+    margin: 0 2px;
+    flex-shrink: 0;
+    align-self: center;
+    margin-bottom: 18px;
+  }
+
+  .block-arrow.on  { background: var(--accent2); }
+  .block-arrow.off { background: var(--danger); }
+
+  .block-arrow::after {
+    content: '';
+    position: absolute;
+    right: -1px; top: -3px;
+    border: 4px solid transparent;
+    border-left-color: inherit;
+  }
+
+  .block-arrow.on::after  { border-left-color: var(--accent2); }
+  .block-arrow.off::after { border-left-color: var(--danger); }
+
+  .ranking-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+  }
+
+  .ranking-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .ranking-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  #bestMode {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent2);
+    letter-spacing: 1px;
+  }
+
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .rank-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    width: 54px;
+    letter-spacing: 1px;
+  }
+
+  .rank-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #060a10;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .rank-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.4s ease;
+  }
+
+  .rank-bar.best { background: linear-gradient(90deg, var(--accent2), #00ff9d); }
+
+  .rank-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    width: 40px;
+    text-align: right;
+  }
+
+  .graphs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .graph-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .graph-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 10px 14px 0;
+  }
+
+  .graph-div { height: 200px; }
+
+  .graph-card.full { grid-column: span 2; }
+  .graph-card.full .graph-div { height: 180px; }
+</style>
+</head>
+
+<body>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<div class="sidebar">
+
+  <div class="sidebar-header">
+    <h1>SigAnalyzer</h1>
+    <p>COMMUNICATION SYSTEMS LAB</p>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>Signal Type</h3>
+    <div class="signal-grid">
+      <button class="sig-btn active" onclick="selectServer('am',this)"><span>AM</span></button>
+      <button class="sig-btn" onclick="selectServer('fm',this)"><span>FM</span></button>
+      <button class="sig-btn" onclick="selectServer('dsbsc',this)"><span>DSB-SC</span></button>
+      <button class="sig-btn" onclick="selectServer('ssbsc',this)"><span>SSB-SC</span></button>
+      <button class="sig-btn" onclick="selectServer('pam',this)"><span>PAM</span></button>
+      <button class="sig-btn" onclick="selectServer('pwm',this)"><span>PWM</span></button>
+      <button class="sig-btn" onclick="selectServer('ppm',this)"><span>PPM</span></button>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>Parameters</h3>
+
+    <div class="param-row">
+      <div class="param-label">
+        <span>MSG FREQ (fm)</span>
+        <span class="param-value" id="fmVal">5 Hz</span>
+      </div>
+      <input type="range" id="fm" min="1" max="20" value="5">
+    </div>
+
+    <div class="param-row">
+      <div class="param-label">
+        <span>CARRIER (fc)</span>
+        <span class="param-value" id="fcVal">50 Hz</span>
+      </div>
+      <input type="range" id="fc" min="10" max="100" value="50">
+    </div>
+
+    <!-- NEW: FM-only slider range 0-3, others 0-1 -->
+    <div class="param-row">
+      <div class="param-label">
+        <!-- NEW: label switches between μ and β depending on mode -->
+        <span id="muLabel">MOD INDEX (μ)</span>
+        <!-- NEW: FM badge shows only when FM is active -->
+        <span class="fm-badge" id="fmBadge">FM: 0–3</span>
+        <span class="param-value" id="muVal">0.70</span>
+      </div>
+      <input type="range" id="mu" min="0" max="1" step="0.01" value="0.7">
+    </div>
+
+    <div class="param-row">
+      <div class="param-label">
+        <span>NOISE LEVEL</span>
+        <span class="param-value" id="noiseVal">0.05</span>
+      </div>
+      <input type="range" id="noise" min="0" max="0.5" step="0.01" value="0.05">
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>Block Control</h3>
+    <label class="block-toggle">
+      <input type="checkbox" id="msg_on" checked>
+      <div class="toggle-pill"></div>
+      <span class="toggle-label">MESSAGE</span>
+    </label>
+    <label class="block-toggle">
+      <input type="checkbox" id="mod_on" checked>
+      <div class="toggle-pill"></div>
+      <span class="toggle-label">MODULATOR</span>
+    </label>
+    <label class="block-toggle">
+      <input type="checkbox" id="chan_on" checked>
+      <div class="toggle-pill"></div>
+      <span class="toggle-label">CHANNEL</span>
+    </label>
+    <label class="block-toggle">
+      <input type="checkbox" id="demod_on" checked>
+      <div class="toggle-pill"></div>
+      <span class="toggle-label">DEMODULATOR</span>
+    </label>
+  </div>
+
+  <div class="sidebar-section">
+    <h3>Playback</h3>
+    <div class="ctrl-row">
+      <button class="ctrl-btn start" onclick="startLive()">▶ START</button>
+      <button class="ctrl-btn stop"  onclick="stopLive()">⏹ STOP</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<div class="main">
+
+  <div class="status-bar">
+    <span class="status-title" id="currentSignal">AM</span>
+    <span id="liveIndicator">
+      <span class="live-dot"></span>
+      <span style="font-family:var(--mono);font-size:11px;letter-spacing:1px;">LIVE</span>
+    </span>
+    <span id="signalStatus" class="status-badge ok">ACTIVE</span>
+    <span style="flex:1"></span>
+    <span id="peakFreq" style="font-family:var(--mono);font-size:11px;color:var(--muted);">PEAK: — Hz</span>
+  </div>
+
+  <div class="metrics-row">
+    <div class="metric-card snr">
+      <div class="metric-label">SNR</div>
+      <div class="metric-value" id="snrVal">—</div>
+      <div class="metric-unit">dB</div>
+    </div>
+    <div class="metric-card vpp">
+      <div class="metric-label">Vpp</div>
+      <div class="metric-value" id="vppVal">—</div>
+      <div class="metric-unit">amplitude</div>
+    </div>
+    <div class="metric-card fom">
+      <div class="metric-label">FOM</div>
+      <div class="metric-value" id="fomVal">—</div>
+      <div class="metric-unit">0–1 score</div>
+    </div>
+    <div class="metric-card nmse">
+      <div class="metric-label">NMSE</div>
+      <div class="metric-value" id="nmseVal">—</div>
+      <div class="metric-unit">error ratio</div>
+    </div>
+  </div>
+
+  <div class="diag-row">
+    <div class="diag-card">
+      <div class="diag-label">System Diagnosis</div>
+      <div id="diagnosis" style="color:var(--accent2);">Initializing...</div>
+    </div>
+
+    <div class="block-flow" id="blockDiagram">
+      <div class="block-node">
+        <div class="block-box on" id="bMsg">MSG</div>
+        <div class="block-dot on" id="dMsg"></div>
+      </div>
+      <div class="block-arrow on" id="aMsg"></div>
+      <div class="block-node">
+        <div class="block-box on" id="bMod">MOD</div>
+        <div class="block-dot on" id="dMod"></div>
+      </div>
+      <div class="block-arrow on" id="aMod"></div>
+      <div class="block-node">
+        <div class="block-box on" id="bChan">CHAN</div>
+        <div class="block-dot on" id="dChan"></div>
+      </div>
+      <div class="block-arrow on" id="aChan"></div>
+      <div class="block-node">
+        <div class="block-box on" id="bDemod">DEMOD</div>
+        <div class="block-dot on" id="dDemod"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ranking-card">
+    <div class="ranking-header">
+      <span class="ranking-label">FOM Rankings (all modes)</span>
+      <span id="bestMode">BEST: —</span>
+    </div>
+    <div id="rankBars"></div>
+  </div>
+
+  <div class="graphs-grid">
+    <div class="graph-card">
+      <div class="graph-title">Message Signal</div>
+      <div class="graph-div" id="gMsg"></div>
+    </div>
+    <div class="graph-card">
+      <div class="graph-title">Carrier Signal</div>
+      <div class="graph-div" id="gCar"></div>
+    </div>
+    <div class="graph-card">
+      <div class="graph-title">Modulated + Noise</div>
+      <div class="graph-div" id="gMod"></div>
+    </div>
+    <div class="graph-card">
+      <div class="graph-title">Demodulated</div>
+      <div class="graph-div" id="gDemod"></div>
+    </div>
+    <div class="graph-card full">
+      <div class="graph-title">Power Spectrum</div>
+      <div class="graph-div" id="gSpec"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ SCRIPT ══════════════ -->
+<script>
+const BASE = 'http://127.0.0.1:8000';
+
+let currentServer = 'am';
+let intervalId    = null;
+let initialized   = {};
+
+// ── Plotly layout ─────────────────────────
+const plotLayout = (yLabel) => ({
+  margin: { t: 4, b: 28, l: 36, r: 8 },
+  paper_bgcolor: 'transparent',
+  plot_bgcolor:  'transparent',
+  font: { family: 'Share Tech Mono', size: 10, color: '#4a6080' },
+  xaxis: { color: '#1a2740', gridcolor: '#1a2740', zerolinecolor: '#1a2740', tickfont: { size: 9 } },
+  yaxis: { color: '#1a2740', gridcolor: '#1a2740', zerolinecolor: '#1a2740',
+           zeroline: true, zerolinewidth: 1, title: yLabel, tickfont: { size: 9 } },
+  showlegend: false
+});
+
+const traceColor = (color) => ({ line: { color, width: 1.5 }, type: 'scatter', mode: 'lines' });
+
+// ── Slider labels ─────────────────────────
+function updateSliderLabels() {
+  document.getElementById('fmVal').textContent    = fm.value + ' Hz';
+  document.getElementById('fcVal').textContent    = fc.value + ' Hz';
+  document.getElementById('noiseVal').textContent = parseFloat(noise.value).toFixed(2);
+
+  // NEW: show β value for FM, μ for others
+  const muSlider = document.getElementById('mu');
+  const val      = parseFloat(muSlider.value);
+  if (currentServer === 'fm') {
+    document.getElementById('muVal').textContent = val.toFixed(2) + ' β';
+  } else {
+    document.getElementById('muVal').textContent = val.toFixed(2);
+  }
+}
+
+// ── NEW: FM slider range switcher ─────────
+// When FM selected  → range 0–3, step 0.05, value clamped to current or 0.7
+// When others       → range 0–1, step 0.01, value clamped to max 1
+function updateMuSliderForMode(mode) {
+  const slider  = document.getElementById('mu');
+  const label   = document.getElementById('muLabel');
+  const badge   = document.getElementById('fmBadge');
+  const current = parseFloat(slider.value);
+
+  if (mode === 'fm') {
+    // Expand range to 0–3 for FM
+    slider.min  = '0';
+    slider.max  = '3';
+    slider.step = '0.05';
+    // Keep current value if already in range, else default to 0.7
+    slider.value = Math.min(Math.max(current, 0), 3).toFixed(2);
+    // Visual feedback
+    slider.classList.add('fm-mode');
+    label.textContent = 'MOD INDEX (β)';   // β is correct term for FM
+    badge.classList.add('visible');
+  } else {
+    // Shrink range back to 0–1 for all other modes
+    slider.min  = '0';
+    slider.max  = '1';
+    slider.step = '0.01';
+    // Clamp value to 1 if it was above 1 (coming from FM)
+    slider.value = Math.min(parseFloat(slider.value), 1.0).toFixed(2);
+    // Reset visuals
+    slider.classList.remove('fm-mode');
+    label.textContent = 'MOD INDEX (μ)';
+    badge.classList.remove('visible');
+  }
+  updateSliderLabels();
+}
+
+// ── Select mode ───────────────────────────
+function selectServer(s, btn) {
+  currentServer = s;
+  document.getElementById('currentSignal').textContent = s.toUpperCase();
+  document.querySelectorAll('.sig-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateMuSliderForMode(s);   // NEW: update slider range on mode change
+  run();
+}
+
+// ── Build URL ─────────────────────────────
+function buildUrl() {
+  const p = new URLSearchParams({
+    fm:       fm.value,
+    fc:       fc.value,
+    mu:       mu.value,           // backend accepts 0–3 for FM naturally
+    noise:    noise.value,
+    msg_on:   msg_on.checked   ? 1 : 0,
+    mod_on:   mod_on.checked   ? 1 : 0,
+    chan_on:  chan_on.checked   ? 1 : 0,
+    demod_on: demod_on.checked ? 1 : 0,
+    active:   currentServer
+  });
+  return `${BASE}/server/${currentServer}?${p.toString()}`;
+}
+
+// ── Block diagram ─────────────────────────
+function updateBlockDiagram() {
+  const blocks = [
+    { box: 'bMsg',   dot: 'dMsg',   arr: 'aMsg',  state: msg_on.checked   },
+    { box: 'bMod',   dot: 'dMod',   arr: 'aMod',  state: mod_on.checked   },
+    { box: 'bChan',  dot: 'dChan',  arr: 'aChan', state: chan_on.checked  },
+    { box: 'bDemod', dot: 'dDemod', arr: null,     state: demod_on.checked }
+  ];
+  blocks.forEach(({ box, dot, arr, state }) => {
+    const cls = state ? 'on' : 'off';
+    document.getElementById(box).className = 'block-box ' + cls;
+    document.getElementById(dot).className = 'block-dot ' + cls;
+    if (arr) document.getElementById(arr).className = 'block-arrow ' + cls;
+  });
+}
+
+// ── Rankings ──────────────────────────────
+function updateRankings(all_results, best) {
+  document.getElementById('bestMode').textContent = '🏆 BEST: ' + best;
+  const maxVal = Math.max(...Object.values(all_results));
+  const sorted = Object.entries(all_results).sort((a, b) => b[1] - a[1]);
+  let html = '';
+  sorted.forEach(([mode, val]) => {
+    const pct    = maxVal > 0 ? (val / maxVal * 100).toFixed(1) : 0;
+    const isBest = mode === best;
+    html += `
+      <div class="rank-row">
+        <span class="rank-name">${mode}</span>
+        <div class="rank-bar-bg">
+          <div class="rank-bar${isBest ? ' best' : ''}" style="width:${pct}%"></div>
+        </div>
+        <span class="rank-val">${val.toFixed(3)}</span>
+      </div>`;
+  });
+  document.getElementById('rankBars').innerHTML = html;
+}
+
+// ── Plot helper ───────────────────────────
+function plot(divId, x, y, color, yLabel, yRange = null) {
+  const trace  = { x, y, ...traceColor(color) };
+  const layout = plotLayout(yLabel);
+  if (yRange) layout.yaxis.range = yRange;
+  if (!initialized[divId]) {
+    Plotly.newPlot(divId, [trace], layout, { responsive: true, displayModeBar: false });
+    initialized[divId] = true;
+  } else {
+    Plotly.react(divId, [trace], layout);
+  }
+}
+
+function fomColor(f) {
+  if (f >= 0.7) return 'var(--accent2)';
+  if (f >= 0.4) return 'var(--warn)';
+  return 'var(--danger)';
+}
+
+// ── Main fetch ────────────────────────────
+async function run() {
+  updateBlockDiagram();
+  try {
+    const res = await fetch(buildUrl());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+
+    document.getElementById('snrVal').textContent  = d.snr.toFixed(1);
+    document.getElementById('vppVal').textContent  = d.vpp.toFixed(3);
+    document.getElementById('fomVal').textContent  = d.fom.toFixed(3);
+    document.getElementById('nmseVal').textContent = d.error.toFixed(4);
+
+    document.querySelector('.metric-card.fom .metric-value').style.color = fomColor(d.fom);
+
+    // FIX A: SNR colour threshold raised — <0 red, <20 amber, ≥20 cyan
+    const snrEl = document.getElementById('snrVal');
+    snrEl.style.color = d.snr < 0  ? 'var(--danger)'
+                      : d.snr < 20 ? 'var(--warn)'
+                      :              'var(--accent)';
+
+    document.getElementById('peakFreq').textContent = 'PEAK: ' + d.peak.toFixed(1) + ' Hz';
+
+    const sb = document.getElementById('signalStatus');
+    if (d.status.includes('ACTIVE') && !d.status.includes('NOT')) {
+      sb.textContent = 'ACTIVE'; sb.className = 'status-badge ok';
+    } else {
+      sb.textContent = 'INACTIVE'; sb.className = 'status-badge err';
+    }
+
+    const diag = document.getElementById('diagnosis');
+    diag.textContent = d.diagnosis;
+    if      (d.diagnosis.includes('❌')) diag.style.color = 'var(--danger)';
+    else if (d.diagnosis.includes('⚠')) diag.style.color = 'var(--warn)';
+    else                                  diag.style.color = 'var(--accent2)';
+
+    if (d.all_results) updateRankings(d.all_results, d.best);
+
+    // FIX B: gMod y-range fixed to [-2.1, 2.1] — was [-1.1, 2.1], clipped AM negative side
+    plot('gMsg',   d.t, d.message,     '#00d4ff', 'Amp', [-1.1,  1.1]);
+    plot('gCar',   d.t, d.carrier,     '#a855f7', 'Amp', [-1.1,  1.1]);
+    plot('gMod',   d.t, d.modulated,   '#ff6b35', 'Amp', [-2.1,  2.1]);
+    plot('gDemod', d.t, d.demodulated, '#00ff9d', 'Amp', [-1.1,  1.1]);
+    plot('gSpec',  d.freq, d.power,    '#00d4ff', 'Power');
+
+  } catch (err) {
+    document.getElementById('diagnosis').textContent = '⚠ Cannot reach backend: ' + err.message;
+    document.getElementById('diagnosis').style.color = 'var(--warn)';
+  }
+}
+
+// ── Live polling ──────────────────────────
+function startLive() {
+  if (intervalId) return;
+  document.querySelector('.live-dot').classList.remove('dead');
+  intervalId = setInterval(run, 500);
+}
+
+function stopLive() {
+  clearInterval(intervalId);
+  intervalId = null;
+  document.querySelector('.live-dot').classList.add('dead');
+  document.querySelector('#liveIndicator span:last-child').textContent = 'PAUSED';
+}
+
+// ── Events ────────────────────────────────
+['fm','fc','mu','noise'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    updateSliderLabels();
+    run();
+  });
+});
+
+['msg_on','mod_on','chan_on','demod_on'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    updateBlockDiagram();
+    run();
+  });
+});
+
+// ── Init ──────────────────────────────────
+updateSliderLabels();
+startLive();
+</script>
+
+</body>
+</html>
