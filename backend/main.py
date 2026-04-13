@@ -13,9 +13,9 @@ app = FastAPI()
 # =========================
 # EMAIL CONFIG
 # =========================
-SENDER_EMAIL = "mail id"
-APP_PASSWORD  = "Your Pass"
-RECEIVER_EMAIL = "mail id"
+SENDER_EMAIL = "mdthaaha@gmaiml.com"
+APP_PASSWORD  = "mntb seqj wnqw jvnx"
+RECEIVER_EMAIL = "taahawafi@gmail.com"
 
 last_email_time = 0
 
