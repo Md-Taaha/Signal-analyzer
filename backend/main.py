@@ -14,7 +14,7 @@ app = FastAPI()
 # EMAIL CONFIG
 # =========================
 SENDER_EMAIL = "mail id"
-APP_PASSWORD  = "your password here"  # Use an app password for Gmail
+APP_PASSWORD  = "your pass"  # Use an app password for Gmail
 RECEIVER_EMAIL = "mail id"
 
 last_email_time = 0
